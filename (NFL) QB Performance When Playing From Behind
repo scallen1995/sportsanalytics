@@ -1,0 +1,55 @@
+# QB Performance when trailing. This measures efficiency when trailing in late
+# situations where WP is <= 30% (i.e. very unlikely to win the game).
+
+
+################## LIBRARY LOAD ################## 
+library(nflreadr)
+library(tidyverse)
+library(gt)
+library(gtExtras)
+library(nflfastR)
+library(ggimage)
+library(ggthemes)
+library(ggtext)
+library(webshot2)
+library(ggrepel)
+
+################## VARIABLE DEFINITIONS ################## 
+play_from_behind <- pbp %>%
+  filter(season == 2023) %>%
+  filter(!is.na(epa)) %>%
+  filter(wp <= 0.3) %>%
+  group_by(name, posteam) %>%
+  summarise(
+    behind_epa = mean(epa, na.rm = T),
+    behind_cpoe = mean(cpoe, na.rm = T),
+    behind_success = mean(success, na.rm = T),
+    attempts = sum(qb_dropback),
+    behind_sack = sum(sack)
+  ) %>%
+  filter(attempts >= 15) %>%
+  arrange(desc(behind_epa)) %>%
+  left_join(teams_colors_logos, by = c("posteam" = "team_abbr"))
+
+################## PLOT GRAPH ################## 
+
+# Smooth line is disabled; enable if desired.
+
+play_from_behind %>%
+  ggplot(aes(x = behind_epa, y = behind_cpoe)) +
+  geom_text_repel(aes(label = name), color = 'black', size = 3) +
+  geom_vline(xintercept = mean(play_from_behind$behind_epa), lty = 'dashed') +
+  geom_hline(yintercept = mean(play_from_behind$behind_cpoe), lty = 'dashed') +
+  geom_point(aes(color = play_from_behind$team_color, size = play_from_behind$attempts), show.legend = FALSE) +
+#  geom_smooth(method = "lm", color = "grey", linetype = 'dashed', se = FALSE) +
+  scale_color_identity(aesthetics = c("fill", "color")) +
+  theme_bw() +
+  labs(x = "EPA/Play When Trailing",
+       y = "CPOE/Play When Trailing",
+       title = "QB Performance When Playing from Behind",
+       subtitle = "2023 | Win Probability 30% or less | Minimum 15 Attempts",
+       caption = "Steve Callen © 2024") +
+  theme(plot.title = element_text(size = 16, face = 'bold', hjust = 0.5)) +
+  theme(plot.subtitle = element_text(size = 12,  hjust = 0.5))
+play_from_behind
+
